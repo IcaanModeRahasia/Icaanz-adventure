@@ -4,96 +4,171 @@
     <meta charset="UTF-8">
     <title>Icaanz Adventure</title>
     <style>
-        body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #f0f0f0; touch-action: none; }
-        canvas { background-color: #fff; border: 2px solid #333; margin-top: 20px; cursor: pointer; }
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            font-family: sans-serif; 
+            background: #f0f0f0; 
+            margin: 0;
+            padding: 20px;
+        }
+        canvas { 
+            background-color: #fff; 
+            border: 2px solid #333; 
+        }
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
     <h1>Icaanz Adventure</h1>
-    <div id="score-board">SKOR: <span id="score">0</span></div>
+    <div id="score">SKOR: 0</div>
     <canvas id="gameCanvas" width="800" height="250"></canvas>
-    <p>Klik di kotak atau tekan <strong>SPASI</strong> untuk lompat</p>
+    <p>Klik layar atau tekan <strong>SPASI / PANAH ATAS</strong> untuk lompat</p>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
 
-        let score = 0, gameSpeed = 5, isGameOver = false, frameCount = 0;
+        let score = 0;
+        let gameSpeed = 6;
+        let isGameOver = false;
+        let obstacles = [];
+        let spawnTimer = 0;
 
+        // Player pakai kotak hitam dulu biar kelihatan jelas hitbox-nya
         const player = {
-            x: 50, y: 200, width: 40, height: 40, dy: 0, jumpForce: 12, gravity: 0.6, grounded: true,
-            draw: function() {
-                ctx.font = "40px serif";
-                ctx.fillText("🕺", this.x, this.y);
-            },
-            update: function() {
-                if (!this.grounded) {
-                    this.dy += this.gravity;
-                    this.y += this.dy;
-                }
-                if (this.y >= 200) {
-                    this.y = 200;
-                    this.dy = 0;
-                    this.grounded = true;
-                }
-            }
+            x: 50,
+            y: 160, // Posisi awal di atas tanah
+            width: 40,
+            height: 40,
+            gravity: 0.6,
+            velocity: 0,
+            jumpForce: -12,
+            isGrounded: false
         };
 
-        const obstacles = [];
-        class Obstacle {
-            constructor(type) {
-                this.type = type;
-                this.x = 800;
-                this.y = type === 'cactus' ? 200 : 160;
-            }
-            draw() {
-                ctx.font = "35px serif";
-                ctx.fillText(this.type === 'cactus' ? "🌵" : "🦅", this.x, this.y);
+        function drawPlayer() {
+            // Gambar kotak karakter (Bisa kamu ganti emoji 🥷 nanti kalau udah lancar)
+            ctx.fillStyle = "#333";
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function updatePlayer() {
+            // Efek gravitasi menarik player ke bawah
+            player.velocity += player.gravity;
+            player.y += player.velocity;
+
+            // Batas tanah (Lantai game ada di koordinat Y = 200)
+            if (player.y >= 160) {
+                player.y = 160;
+                player.velocity = 0;
+                player.isGrounded = true;
+            } else {
+                player.isGrounded = false;
             }
         }
 
         function jump() {
-            if (player.grounded) {
-                player.dy = -player.jumpForce;
-                player.grounded = false;
+            if (player.isGrounded) {
+                player.velocity = player.jumpForce;
+                player.isGrounded = false;
             }
-            if (isGameOver) location.reload();
         }
 
-        // Event Listener untuk lompat
-        window.addEventListener("keydown", (e) => { if(e.code === "Space") jump(); });
+        // Rintangan (Kaktus / Burung)
+        function spawnObstacle() {
+            let type = Math.random() < 0.3 ? 'bird' : 'cactus';
+            obstacles.push({
+                x: 800,
+                y: type === 'cactus' ? 160 : 110, // Burung posisi agak tinggi
+                width: 30,
+                height: 40,
+                type: type
+            });
+        }
+
+        // Input Controls (Keyboard & Touch)
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                e.preventDefault(); // Mencegah browser nge-scroll down
+                jump();
+            }
+        });
+        
+        // Klik di layar canvas langsung lompat
         canvas.addEventListener("mousedown", jump);
-        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); });
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            jump();
+        });
 
-        function gameLoop() {
-            if (dongo,kamu-kalah) return;
-            ctx.clearRect(0, 0, 800, 250);
-            
-            player.update();
-            player.draw();
+        // Game Loop Utama
+        function animate() {
+            if (isGameOver) return;
 
-            frameCount++;
-            if (frameCount % 100 === 0) obstacles.push(new Obstacle(Math.random() < 0.3 ? 'bird' : 'cactus'));
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            obstacles.forEach((obs, index) => {
+            // 1. Gambar Garis Tanah
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 200);
+            ctx.lineTo(800, 200);
+            ctx.stroke();
+
+            // 2. Update & Gambar Player
+            updatePlayer();
+            drawPlayer();
+
+            // 3. Handle Rintangan
+            spawnTimer++;
+            if (spawnTimer > 90) { // Muncul setiap beberapa detik
+                spawnObstacle();
+                spawnTimer = 0;
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
                 obs.x -= gameSpeed;
-                obs.draw();
-                
-                if (obs.x < player.x + 30 && obs.x + 30 > player.x && player.y + 40 > obs.y) {
+
+                // Gambar rintangan (Kotak merah untuk kaktus, abu-abu untuk burung)
+                ctx.fillStyle = obs.type === 'cactus' ? "#d32f2f" : "#757575";
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+                // Deteksi Tabrakan (Akurat)
+                if (
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y
+                ) {
                     isGameOver = true;
-                    alert("Game Over! Skor: " + score);
+                    alert("Game Over! Skor kamu: " + Math.floor(score));
                     location.reload();
                 }
-                if (obs.x < -40) obstacles.splice(index, 1);
-            });
 
-            score++;
-            scoreElement.innerText = score;
-            requestAnimationFrame(gameLoop);
+                // Hapus rintangan di luar layar
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // 4. Update Skor & Kecepatan
+            score += 0.15;
+            scoreElement.innerText = "SKOR: " + Math.floor(score);
+            gameSpeed += 0.002; // Semakin lama semakin cepat
+
+            requestAnimationFrame(animate);
         }
-        gameLoop();
+
+        animate();
     </script>
 </body>
 </html>
