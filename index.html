@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title>Icaanz Adventure</title>
     <style>
-        body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #f0f0f0; }
-        canvas { background-color: #fff; border: 2px solid #333; margin-top: 20px; }
+        body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #f0f0f0; touch-action: none; }
+        canvas { background-color: #fff; border: 2px solid #333; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -13,7 +13,7 @@
     <h1>Icaanz Adventure</h1>
     <div id="score-board">SKOR: <span id="score">0</span></div>
     <canvas id="gameCanvas" width="800" height="250"></canvas>
-    <p>Gunakan <strong>SPASI</strong> untuk melompat</p>
+    <p>Klik di kotak atau tekan <strong>SPASI</strong> untuk lompat</p>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -23,19 +23,18 @@
         let score = 0, gameSpeed = 5, isGameOver = false, frameCount = 0;
 
         const player = {
-            x: 50, y: 190, width: 40, height: 40, dy: 0, jumpForce: 12, gravity: 0.6, grounded: true,
+            x: 50, y: 200, width: 40, height: 40, dy: 0, jumpForce: 12, gravity: 0.6, grounded: true,
             draw: function() {
-                ctx.font = "40px sans-serif";
-                ctx.textBaseline = "top";
-                ctx.fillText("🥷", this.x, this.y); // Sasuke
+                ctx.font = "40px serif";
+                ctx.fillText("🕺", this.x, this.y);
             },
             update: function() {
                 if (!this.grounded) {
                     this.dy += this.gravity;
                     this.y += this.dy;
                 }
-                if (this.y + this.height >= 240) {
-                    this.y = 200; // Reset ke posisi tanah
+                if (this.y >= 200) {
+                    this.y = 200;
                     this.dy = 0;
                     this.grounded = true;
                 }
@@ -46,23 +45,32 @@
         class Obstacle {
             constructor(type) {
                 this.type = type;
-                this.x = canvas.width;
-                this.y = type === 'cactus' ? 200 : 160; // Burung lebih tinggi
-                this.width = 30; this.height = 40;
+                this.x = 800;
+                this.y = type === 'cactus' ? 200 : 160;
             }
             draw() {
-                ctx.font = "35px sans-serif";
+                ctx.font = "35px serif";
                 ctx.fillText(this.type === 'cactus' ? "🌵" : "🦅", this.x, this.y);
             }
         }
 
-        function gameLoop() {
-            if (isGameOver) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw Ground
-            ctx.beginPath(); ctx.moveTo(0, 240); ctx.lineTo(800, 240); ctx.stroke();
+        function jump() {
+            if (player.grounded) {
+                player.dy = -player.jumpForce;
+                player.grounded = false;
+            }
+            if (isGameOver) location.reload();
+        }
 
+        // Event Listener untuk lompat
+        window.addEventListener("keydown", (e) => { if(e.code === "Space") jump(); });
+        canvas.addEventListener("mousedown", jump);
+        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); });
+
+        function gameLoop() {
+            if (dongo,kamu-kalah) return;
+            ctx.clearRect(0, 0, 800, 250);
+            
             player.update();
             player.draw();
 
@@ -73,10 +81,9 @@
                 obs.x -= gameSpeed;
                 obs.draw();
                 
-                // Cek tabrakan
                 if (obs.x < player.x + 30 && obs.x + 30 > player.x && player.y + 40 > obs.y) {
                     isGameOver = true;
-                    alert("Dongo kamu klh🤣! Skor kamu: " + score);
+                    alert("Game Over! Skor: " + score);
                     location.reload();
                 }
                 if (obs.x < -40) obstacles.splice(index, 1);
@@ -84,12 +91,8 @@
 
             score++;
             scoreElement.innerText = score;
-            if (score % 200 === 0) gameSpeed += 0.5;
-
             requestAnimationFrame(gameLoop);
         }
-
-        window.addEventListener("keydown", (e) => { if (e.code === "Space" && player.grounded) { player.dy = -player.jumpForce; player.grounded = false; } });
         gameLoop();
     </script>
 </body>
