@@ -14,33 +14,22 @@
             padding: 20px;
             user-select: none;
         }
-        h1 {
-            margin-bottom: 5px;
-            color: #222;
-        }
-        #score-container {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #555;
-        }
+        h1 { margin-bottom: 5px; color: #222; }
+        #score-container { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #555; }
         canvas { 
             background-color: #fff; 
             border: 2px solid #333; 
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            cursor: pointer;
         }
-        .info {
-            margin-top: 15px;
-            color: #666;
-            font-size: 14px;
-        }
+        .info { margin-top: 15px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <h1>Icaanz Adventure</h1>
-    <div id="score-container">SKOR: <span id="score">0</span> | SPEED: <span id="speed-text">1x</span></div>
+    <div id="score-container">SKOR: <span id="score">0</span> | SPEED: <span id="speed-text">1.0x</span></div>
     <canvas id="gameCanvas" width="800" height="250"></canvas>
     <p class="info">Tekan <strong>SPASI / PANAH ATAS</strong> atau <strong>KLIK CANVAS</strong> untuk melompat</p>
 
@@ -51,34 +40,53 @@
         const speedElement = document.getElementById("speed-text");
 
         let score = 0;
-        let gameSpeed = 5; // Kecepatan awal
+        let gameSpeed = 5; 
         let isGameOver = false;
         let obstacles = [];
         let spawnTimer = 0;
-        let nextSpawnInterval = 120; // Jeda awal muncul rintangan (dalam frame)
+        let nextSpawnInterval = 120; 
 
-        // Karakter Sasuke 🕺
+        // Karakter Ninja Sasuke (Menggunakan Grafis Canvas Dinamis)
         const player = {
             x: 60,
-            y: 160, 
-            width: 40,
+            y: 165, 
+            width: 35,
             height: 40,
             gravity: 0.6,
             velocity: 0,
             jumpForce: -13,
             isGrounded: false,
             draw: function() {
-                ctx.font = "42px Arial";
-                ctx.textBaseline = "top";
-                ctx.fillText("🕺", this.x, this.y);
+                // 1. Badan/Baju Ninja Sasuke (Hitam)
+                ctx.fillStyle = "#1a1a1a";
+                ctx.fillRect(this.x, this.y + 12, this.width, this.height - 12);
+                
+                // 2. Kepala/Muka (Warna Kulit)
+                ctx.fillStyle = "#ffd1a4";
+                ctx.fillRect(this.x + 5, this.y, this.width - 10, 14);
+                
+                // 3. Rambut Sasuke (Hitam di bagian atas)
+                ctx.fillStyle = "#000";
+                ctx.fillRect(this.x + 3, this.y - 3, this.width - 6, 5);
+
+                // 4. Ikat Kepala Konoha (Biru Tua)
+                ctx.fillStyle = "#0f2a4a";
+                ctx.fillRect(this.x + 5, this.y + 2, this.width - 10, 4);
+                
+                // Logo pelat besi di ikat kepala (Abu-abu)
+                ctx.fillStyle = "#bbb";
+                ctx.fillRect(this.x + 13, this.y + 3, 9, 2);
+
+                // 5. Mata Sharingan (Merah)
+                ctx.fillStyle = "#ff0000";
+                ctx.fillRect(this.x + 22, this.y + 7, 3, 3); // Mata depan
             },
             update: function() {
                 this.velocity += this.gravity;
                 this.y += this.velocity;
 
-                // Batas tanah pas dengan posisi emoji
-                if (this.y >= 160) {
-                    this.y = 160;
+                if (this.y >= 165) {
+                    this.y = 165;
                     this.velocity = 0;
                     this.isGrounded = true;
                 } else {
@@ -94,101 +102,6 @@
             }
         }
 
-        // Spawn Rintangan (Kaktus 🌵 / Burung 🦅)
+        // Spawn Rintangan Vektor (Kaktus / Burung)
         function spawnObstacle() {
-            let type = Math.random() < 0.35 ? 'bird' : 'cactus';
-            obstacles.push({
-                x: 800,
-                // Burung agak tinggi (110), kaktus di tanah (165)
-                y: type === 'cactus' ? 165 : 110, 
-                width: 35,
-                height: 40,
-                type: type
-            });
-        }
-
-        // Kontrol Input
-        window.addEventListener("keydown", (e) => {
-            if (e.code === "Space" || e.code === "ArrowUp") {
-                e.preventDefault(); 
-                jump();
-            }
-        });
-        canvas.addEventListener("mousedown", jump);
-        canvas.addEventListener("touchstart", (e) => {
-            e.preventDefault();
-            jump();
-        });
-
-        // Game Loop
-        function gameLoop() {
-            if (isGameOver) return;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 1. Gambar Garis Tanah (Gaya Dino Chrome)
-            ctx.strokeStyle = "#bbb";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, 205);
-            ctx.lineTo(800, 205);
-            ctx.stroke();
-
-            // 2. Update & Gambar Sasuke
-            player.update();
-            player.draw();
-
-            // 3. Logika Spawning Rintangan yang Makin Cepat
-            spawnTimer++;
-            if (spawnTimer >= nextSpawnInterval) {
-                spawnObstacle();
-                spawnTimer = 0;
-                // Jeda spawn makin pendek seiring gameSpeed bertambah (biar rintangan makin rapat)
-                nextSpawnInterval = Math.max(45, 120 - Math.floor(gameSpeed * 6));
-            }
-
-            // 4. Pergerakan dan Deteksi Tabrakan Rintangan
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.x -= gameSpeed;
-
-                // Menggambar Emoji Kaktus / Burung
-                ctx.font = obs.type === 'cactus' ? "38px Arial" : "34px Arial";
-                ctx.textBaseline = "top";
-                ctx.fillText(obs.type === 'cactus' ? "🌵" : "🦅", obs.x, obs.y);
-
-                // Hitbox presisi (dikurangi sedikit padding agar adil bagi player)
-                if (
-                    player.x + 5 < obs.x + obs.width &&
-                    player.x + player.width - 5 > obs.x &&
-                    player.y + 5 < obs.y + obs.height &&
-                    player.y + player.height > obs.y
-                ) {
-                    iskamu kalah karena dongo = true;
-                    alert("kamu kalah karena dongo!\nSkor Akhir Kamu: " + Math.floor(score));
-                    location.reload();
-                }
-
-                // Hapus rintangan jika lolos dari layar
-                if (obs.x + obs.width < 0) {
-                    obstacles.splice(i, 1);
-                }
-            }
-
-            // 5. Sistem Skor & Peningkatan Kecepatan (Makin Lama Makin Cepat)
-            score += 0.15;
-            scoreElement.innerText = Math.floor(score);
-
-            // Setiap 100 skor, kecepatan bertambah secara berkala
-            gameSpeed = 5 + (score / 150); 
-            
-            // Tampilkan multiplier kecepatan di layar (misal: 1.2x, 2.0x, dst)
-            speedElement.innerText = (gameSpeed / 5).toFixed(1) + "x";
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        gameLoop();
-    </script>
-</body>
-</html>
+            let type = Math.random() < 0.35 ? 'bird'
