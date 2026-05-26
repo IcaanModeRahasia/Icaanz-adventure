@@ -4,104 +4,175 @@
     <meta charset="UTF-8">
     <title>Icaanz Adventure</title>
     <style>
+        * { box-sizing: border-box; }
         body { 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             font-family: 'Courier New', Courier, monospace; 
             background: #f7f7f7; 
-            margin: 0;
+            margin: 0; 
             padding: 20px;
             user-select: none;
         }
-        h1 { margin-bottom: 5px; color: #222; }
-        #score-container { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #555; }
-        canvas { 
-            background-color: #fff; 
-            border: 2px solid #333; 
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        h1 { margin: 10px 0; color: #222; }
+        #score-board { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #444; }
+        
+        /* Kotak Layar Utama Game */
+        #game-box {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 250px;
+            background: #ffffff;
+            border: 3px solid #333;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
             cursor: pointer;
         }
+
+        /* Garis Tanah */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            border-top: 3px solid #333;
+            background: #e0e0e0;
+        }
+
+        /* Karakter Sasuke (Pixel Art Buatan CSS) */
+        #sasuke {
+            position: absolute;
+            bottom: 40px; /* Pas di atas tanah */
+            left: 50px;
+            width: 36px;
+            height: 45px;
+            background: #1a1a1a; /* Jubah Hitam Akatsuki/Klan Uchiha */
+            border-radius: 4px;
+            box-shadow: 
+                /* Kepala warna kulit ninja */
+                inset 0 30px 0 0 #ffd1a4,
+                /* Rambut jabrik khas Sasuke di atas kepala */
+                0 -6px 0 0 #000,
+                /* Mata Sharingan Merah menyala */
+                inset -8px 22px 0 0 #ff0000; 
+            transition: bottom 0s;
+        }
+
+        /* Rintangan Kaktus Hijau */
+        .cactus-obstacle {
+            position: absolute;
+            bottom: 40px;
+            width: 25px;
+            height: 45px;
+            background: #2e7d32; /* Batang utama kaktus */
+            border-radius: 3px;
+            /* Membuat cabang kaktus kiri kanan pakai shadow */
+            box-shadow: 
+                -8px -15px 0 -4px #2e7d32, 
+                8px -20px 0 -4px #2e7d32;
+        }
+
+        /* Rintangan Burung */
+        .bird-obstacle {
+            position: absolute;
+            bottom: 95px; /* Terbang tinggi */
+            width: 35px;
+            height: 20px;
+            background: #757575; /* Sayap/Badan Burung */
+            border-radius: 50% 50% 0 0;
+            border-bottom: 4px solid #424242;
+        }
+
         .info { margin-top: 15px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <h1>Icaanz Adventure</h1>
-    <div id="score-container">SKOR: <span id="score">0</span> | SPEED: <span id="speed-text">1.0x</span></div>
-    <canvas id="gameCanvas" width="800" height="250"></canvas>
-    <p class="info">Tekan <strong>SPASI / PANAH ATAS</strong> atau <strong>KLIK CANVAS</strong> untuk melompat</p>
+    <div id="score-board">SKOR: <span id="score">0</span> | SPEED: <span id="speed">1.0x</span></div>
+    
+    <div id="game-box" id="gameBox">
+        <div id="sasuke"></div>
+        <div id="ground"></div>
+    </div>
+
+    <p class="info">Tekan **SPASI** atau **KLIK AREA GAME** untuk membuat Sasuke melompat</p>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
+        const sasuke = document.getElementById("sasuke");
+        const gameBox = document.getElementById("game-box");
         const scoreElement = document.getElementById("score");
-        const speedElement = document.getElementById("speed-text");
+        const speedElement = document.getElementById("speed");
 
         let score = 0;
-        let gameSpeed = 5; 
+        let gameSpeed = 5; // Kecepatan awal rintangan berjalan
+        let isJumping = false;
         let isGameOver = false;
-        let obstacles = [];
-        let spawnTimer = 0;
-        let nextSpawnInterval = 120; 
+        let obstacleTimer = 0;
 
-        // Karakter Ninja Sasuke (Menggunakan Grafis Canvas Dinamis)
-        const player = {
-            x: 60,
-            y: 165, 
-            width: 35,
-            height: 40,
-            gravity: 0.6,
-            velocity: 0,
-            jumpForce: -13,
-            isGrounded: false,
-            draw: function() {
-                // 1. Badan/Baju Ninja Sasuke (Hitam)
-                ctx.fillStyle = "#1a1a1a";
-                ctx.fillRect(this.x, this.y + 12, this.width, this.height - 12);
-                
-                // 2. Kepala/Muka (Warna Kulit)
-                ctx.fillStyle = "#ffd1a4";
-                ctx.fillRect(this.x + 5, this.y, this.width - 10, 14);
-                
-                // 3. Rambut Sasuke (Hitam di bagian atas)
-                ctx.fillStyle = "#000";
-                ctx.fillRect(this.x + 3, this.y - 3, this.width - 6, 5);
-
-                // 4. Ikat Kepala Konoha (Biru Tua)
-                ctx.fillStyle = "#0f2a4a";
-                ctx.fillRect(this.x + 5, this.y + 2, this.width - 10, 4);
-                
-                // Logo pelat besi di ikat kepala (Abu-abu)
-                ctx.fillStyle = "#bbb";
-                ctx.fillRect(this.x + 13, this.y + 3, 9, 2);
-
-                // 5. Mata Sharingan (Merah)
-                ctx.fillStyle = "#ff0000";
-                ctx.fillRect(this.x + 22, this.y + 7, 3, 3); // Mata depan
-            },
-            update: function() {
-                this.velocity += this.gravity;
-                this.y += this.velocity;
-
-                if (this.y >= 165) {
-                    this.y = 165;
-                    this.velocity = 0;
-                    this.isGrounded = true;
-                } else {
-                    this.isGrounded = false;
-                }
-            }
-        };
-
+        // Fungsi Mekanik Lompat Sasuke
         function jump() {
-            if (player.isGrounded) {
-                player.velocity = player.jumpForce;
-                player.isGrounded = false;
-            }
+            if (isJumping || isGameOver) return;
+            isJumping = true;
+            
+            let currentBottom = 40; // Posisi awal di atas tanah (sesuai CSS)
+            let jumpHeight = 145; // Batas tinggi lompatan
+            
+            // Gerakan Naik
+            let upInterval = setInterval(() => {
+                if (currentBottom >= jumpHeight) {
+                    clearInterval(upInterval);
+                    
+                    // Gerakan Turun otomatis
+                    let downInterval = setInterval(() => {
+                        if (currentBottom <= 40) {
+                            clearInterval(downInterval);
+                            currentBottom = 40;
+                            isJumping = false;
+                        } else {
+                            currentBottom -= 5;
+                        }
+                        sasuke.style.bottom = currentBottom + "px";
+                    }, 12);
+                } else {
+                    currentBottom += 6;
+                }
+                sasuke.style.bottom = currentBottom + "px";
+            }, 12);
         }
 
-        // Spawn Rintangan Vektor (Kaktus / Burung)
-        function spawnObstacle() {
-            let type = Math.random() < 0.35 ? 'bird'
+        // Kontrol Tombol Spasi Keyboard
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+                e.preventDefault();
+                jump();
+            }
+        });
+
+        // Kontrol Klik/Sentuh Layar HP dan Laptop
+        gameBox.addEventListener("mousedown", jump);
+        gameBox.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        // Perulangan Logika Game Utama (Loop)
+        function gameLoop() {
+            if (isGameOver) return;
+
+            // 1. Tambah Skor Berkelanjutan
+            score++;
+            scoreElement.innerText = score;
+            
+            // 2. Fitur: MAKIN LAMA MAKIN CEPAT (Kecepatan bertambah setiap kelipatan skor)
+            gameSpeed = 5 + (score / 150);
+            speedElement.innerText = (gameSpeed / 5).toFixed(1) + "x";
+
+            // 3. Waktu Pemunculan Rintangan (Makin cepat game, rintangan makin sering muncul)
+            obstacleTimer++;
+            let spawnInterval = Math.max(35, 90 - Math.floor(gameSpeed * 3));
+            if (obstacleTimer > spawnInterval) {
